@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	var router *mux.Router = mux.NewRouter()
+	router := mux.NewRouter()
 
 	/** Router handlers */
 	router.HandleFunc("/api/ping", pingAPI).Methods("GET")
