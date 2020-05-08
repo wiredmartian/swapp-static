@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
@@ -29,5 +30,6 @@ type Author struct {
 /** Handlers */
 /** Looks similar to nodejs pingAPI(req, res) */
 func pingAPI(w http.ResponseWriter, r *http.Request) {
-
+	w.Header().Set("content-type", "application/json")
+	json.NewEncoder(w).Encode("Hello from Go api!")
 }
