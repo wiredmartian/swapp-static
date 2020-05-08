@@ -17,18 +17,8 @@ func main() {
 }
 
 /** Models */
-type Book struct {
-	ID     string
-	Isbn   string
-	Author *Author
-}
-
-type Author struct {
-	name string
-}
 
 /** Handlers */
-/** Looks similar to nodejs pingAPI(req, res) */
 func pingAPI(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "application/json")
 	json.NewEncoder(w).Encode("Hello from Go api!")
