@@ -48,12 +48,12 @@ func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("%v\n", header.Size)
 	fmt.Printf("%v\n", header.Header)
 
-	tempFile, error := ioutil.TempFile("temp-images", "upload-*.png")
+	tempFile, error := ioutil.TempFile("static", "upload-*.png")
 	if error != nil {
 		fmt.Println(error)
 		w.Header().Set("content-type", "application/json")
 		w.WriteHeader(400)
-		json.NewEncoder(w).Encode(err)
+		json.NewEncoder(w).Encode(error)
 		return
 	}
 	defer tempFile.Close()
