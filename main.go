@@ -24,6 +24,10 @@ func main() {
 }
 
 /** Models */
+type FileUploadRes struct {
+	Message string
+	FileUrl string
+}
 
 /** Handlers */
 func pingAPI(w http.ResponseWriter, r *http.Request) {
@@ -66,9 +70,18 @@ func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(err)
 		return
 	}
-	tempFile.Write(fileBytes)
+	bytesW, _err := tempFile.Write(fileBytes)
+	if _err != nil {
+		fmt.Println(err)
+		w.Header().Set("content-type", "application/json")
+		w.WriteHeader(400)
+		json.NewEncoder(w).Encode(_err)
+		return
+	}
+	fmt.Println(bytesW)
+	res := FileUploadRes{Message: "Successfully uploaded file", FileUrl: tempFile.Name()}
 	w.Header().Set("content-type", "application/json")
-	json.NewEncoder(w).Encode("Successfully uploaded file")
+	json.NewEncoder(w).Encode(res)
 }
 
 /** Middleware */
