@@ -17,7 +17,7 @@ func main() {
 	/** Router handlers */
 	router.HandleFunc("/api/ping", pingAPI).Methods("GET")
 	router.HandleFunc("/api/upload", uploadFileHandler).Methods("POST")
-	router.PathPrefix("/static").Handler(http.StripPrefix("/static", http.FileServer(http.Dir("./static/"))))
+	router.HandleFunc("/static/{filename}", getFile).Methods("GET")
 	fmt.Println("Server running on PORT 8001")
 	log.Fatal(http.ListenAndServe(":8001", router))
 }
@@ -34,7 +34,9 @@ func pingAPI(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode("Hello from Go api!")
 }
 func getFile(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "./static/11290243.jpeg")
+	params := mux.Vars(r)
+	filename := params["filename"]
+	http.ServeFile(w, r, "./static/"+filename)
 }
 func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseMultipartForm(5 * 1024 * 1024)
