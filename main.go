@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
 	"io/ioutil"
 	"log"
@@ -13,6 +14,7 @@ func main() {
 	router := mux.NewRouter()
 
 	router.Use(requestLogging)
+	router.Use(parseToken)
 
 	/** Router handlers */
 	router.HandleFunc("/api/ping", pingAPI).Methods("GET")
@@ -83,6 +85,26 @@ func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
 	res := FileUploadRes{Message: "Successfully uploaded file", FileUrl: tempFile.Name()}
 	w.Header().Set("content-type", "application/json")
 	_ = json.NewEncoder(w).Encode(res)
+}
+
+func parseToken(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		tokenString := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmb28iOiJiYXIiLCJuYmYiOjE0NDQ0Nzg0MDB9.u1riaD1rW97opCoAuRCTy4w58Br-Zk-bh7vLiRIsrpU"
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+			}
+			return []byte("Secret"), nil
+		})
+
+		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+			fmt.Println(token.Claims)
+			fmt.Println(claims["foo"], claims["nbf"])
+			next.ServeHTTP(writer, request)
+		} else {
+			fmt.Println(err)
+		}
+	})
 }
 
 /** Middleware */
