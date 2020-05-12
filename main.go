@@ -41,6 +41,7 @@ func getFile(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "./static/"+filename)
 }
 func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Uploading file...")
 	_ = r.ParseMultipartForm(5 * 1024 * 1024)
 	file, header, err := r.FormFile("image")
 	if err != nil {
@@ -91,20 +92,22 @@ func parseToken(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		authHeader := request.Header.Get("Authorization")
 		requestToken := authHeader[7:len(authHeader)]
-		fmt.Println(requestToken)
-		tokenString := "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI5YjEwYzg5OC0wMTI4LTRlMDQtODNiOC05MzIxMjNjYzM3ZDMiLCJ1c2VyRnVsbE5hbWUiOiI5YjEwYzg5OC0wMTI4LTRlMDQtODNiOC05MzIxMjNjYzM3ZDMiLCJyZXNlbGxlcklkIjpudWxsLCJzaXRlS2V5IjoicG9ydGFsLm15dGVsbmV0LmNvLnphIiwiYWRkaXQiOnt9LCJpYXQiOjE1ODkzMTc1NzcsImV4cCI6MTU4OTMyMTE3NywiYXVkIjoicG9ydGFsLm15dGVsbmV0LmNvLnphIiwiaXNzIjoic3VwcG9ydEBteXRlbG5ldC5jby56YSIsInN1YiI6IjliMTBjODk4LTAxMjgtNGUwNC04M2I4LTkzMjEyM2NjMzdkMyJ9.4WI5XjOPH6Xy36ykjOeB26XnqKGPmgTF_-Vd3eYAWA1BPUNtX9RpZTlDLSQw09H-UwzKrhGj2d2RUTEHXDONpg"
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		token, err := jwt.Parse(requestToken, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 			}
-			return []byte("8D6049A45555471584B0CADC2E2B8A45"), nil
+			return []byte("8D6049A45555471584B0CADC2E2B8A4"), nil
 		})
 		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+			/** verified token here*/
 			fmt.Println(token.Claims)
-			fmt.Println(claims["foo"], claims["nbf"])
+			fmt.Println(claims["iss"])
 			next.ServeHTTP(writer, request)
 		} else {
 			fmt.Println(err)
+			writer.Header().Set("content-type", "application/json")
+			writer.WriteHeader(400)
+			_ = json.NewEncoder(writer).Encode(err.Error())
 		}
 	})
 }
