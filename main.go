@@ -60,7 +60,7 @@ func uploadMultipleFilesHandler(w http.ResponseWriter, r *http.Request) {
 		file, err := fh.Open()
 		if err == nil {
 			fileURI, _err := uploadFile(file)
-			if _err != nil {
+			if _err == nil {
 				uploadedFiles = append(uploadedFiles, fileURI)
 			}
 		}
