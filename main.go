@@ -5,14 +5,15 @@ import (
 	"fmt"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 )
 
 func main() {
 	router := mux.NewRouter()
-
 	router.Use(requestLogging)
 	router.Use(parseToken)
 
@@ -20,6 +21,12 @@ func main() {
 	router.HandleFunc("/api/ping", pingAPI).Methods("GET")
 	router.HandleFunc("/api/upload", uploadFileHandler).Methods("POST")
 	router.HandleFunc("/static/{filename}", getFile).Methods("GET")
+
+	/** load .env */
+	err := godotenv.Load(".env")
+	if err != nil {
+		fmt.Println("Failed to load .env")
+	}
 	fmt.Println("Server running on PORT 8001")
 	log.Fatal(http.ListenAndServe(":8001", router))
 }
@@ -44,6 +51,7 @@ func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Uploading file...")
 	_ = r.ParseMultipartForm(5 * 1024 * 1024)
 	file, header, err := r.FormFile("image")
+	fmt.Println(file)
 	if err != nil {
 		fmt.Println(err)
 		w.Header().Set("content-type", "application/json")
@@ -96,7 +104,8 @@ func parseToken(next http.Handler) http.Handler {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 			}
-			return []byte("8D6049A45555471584B0CADC2E2B8A4"), nil
+			secret := os.Getenv("JWTSECRET")
+			return []byte(secret), nil
 		})
 		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 			/** verified token here*/
