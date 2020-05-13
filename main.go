@@ -8,6 +8,7 @@ import (
 	"github.com/joho/godotenv"
 	"io/ioutil"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"os"
 )
@@ -36,6 +37,9 @@ type FileUploadRes struct {
 	Message string
 	FileUrl string
 }
+type FileUploads struct {
+	FileUrls []string
+}
 
 /** Handlers */
 func pingAPI(w http.ResponseWriter, r *http.Request) {
@@ -46,6 +50,36 @@ func getFile(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	filename := params["filename"]
 	http.ServeFile(w, r, "./static/"+filename)
+}
+func uploadMultipleFilesHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Uploading files...")
+	_ = r.ParseMultipartForm(5 * 1024 * 1024)
+	fileHeaders := r.MultipartForm.File["images"]
+	var uploadedFiles []string
+	for _, fh := range fileHeaders {
+		file, err := fh.Open()
+		if err == nil {
+			fileURI, _err := uploadFile(file)
+			if _err != nil {
+				uploadedFiles = append(uploadedFiles, fileURI)
+			}
+		}
+	}
+	fileUrls := FileUploads{FileUrls: uploadedFiles}
+	w.Header().Set("content-type", "application/json")
+	_ = json.NewEncoder(w).Encode(fileUrls)
+}
+func uploadFile(f multipart.File) (fileURI string, error error) {
+	defer f.Close()
+	tempFile, _ := ioutil.TempFile("static", "upload-*.png")
+	defer tempFile.Close()
+	fileBytes, _ := ioutil.ReadAll(f)
+	_, err := tempFile.Write(fileBytes)
+	if err != nil {
+		return "", err
+	}
+	return tempFile.Name(), nil
+
 }
 func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Uploading file...")
