@@ -34,11 +34,8 @@ func main() {
 }
 
 /** Models */
-type FileUploadRes struct {
-	Message string
-	FileUrl string
-}
 type FileUploads struct {
+	Message  string
 	FileUrls []string
 }
 
@@ -66,7 +63,8 @@ func uploadMultipleFilesHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	fileUrls := FileUploads{FileUrls: uploadedFiles}
+	resMessage := fmt.Sprintf("%v out of %v files were uploaded", len(uploadedFiles), len(fileHeaders))
+	fileUrls := FileUploads{Message: resMessage, FileUrls: uploadedFiles}
 	w.Header().Set("content-type", "application/json")
 	_ = json.NewEncoder(w).Encode(fileUrls)
 }
@@ -79,19 +77,18 @@ func uploadFile(f multipart.File) (fileURI string, error error) {
 	if err != nil {
 		return "", err
 	}
-	return tempFile.Name(), nil
+	return "/" + tempFile.Name(), nil
 
 }
 func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Uploading file...")
 	_ = r.ParseMultipartForm(5 * 1024 * 1024)
 	file, header, err := r.FormFile("image")
-	fmt.Println(file)
 	if err != nil {
 		fmt.Println(err)
 		w.Header().Set("content-type", "application/json")
 		w.WriteHeader(400)
-		_ = json.NewEncoder(w).Encode(err)
+		_ = json.NewEncoder(w).Encode(err.Error())
 		return
 	}
 	defer file.Close()
@@ -104,7 +101,7 @@ func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(_error)
 		w.Header().Set("content-type", "application/json")
 		w.WriteHeader(400)
-		_ = json.NewEncoder(w).Encode(_error)
+		_ = json.NewEncoder(w).Encode(_error.Error())
 		return
 	}
 	defer tempFile.Close()
@@ -114,7 +111,7 @@ func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err)
 		w.Header().Set("content-type", "application/json")
 		w.WriteHeader(400)
-		_ = json.NewEncoder(w).Encode(err)
+		_ = json.NewEncoder(w).Encode(err.Error())
 		return
 	}
 	bytesW, _err := tempFile.Write(fileBytes)
@@ -122,11 +119,12 @@ func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err)
 		w.Header().Set("content-type", "application/json")
 		w.WriteHeader(400)
-		_ = json.NewEncoder(w).Encode(_err)
+		_ = json.NewEncoder(w).Encode(_err.Error())
 		return
 	}
 	fmt.Println(bytesW)
-	res := FileUploadRes{Message: "Successfully uploaded file", FileUrl: tempFile.Name()}
+	var fileUrl = []string{fmt.Sprintf("/%v", tempFile.Name())}
+	res := FileUploads{Message: "Successfully uploaded file", FileUrls: fileUrl}
 	w.Header().Set("content-type", "application/json")
 	_ = json.NewEncoder(w).Encode(res)
 }
@@ -134,6 +132,11 @@ func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
 func parseToken(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		authHeader := request.Header.Get("Authorization")
+		if authHeader == "" {
+			fmt.Println("No token found, but it's cool for now")
+			next.ServeHTTP(writer, request)
+			return
+		}
 		requestToken := authHeader[7:len(authHeader)]
 		token, err := jwt.Parse(requestToken, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
