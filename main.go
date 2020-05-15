@@ -21,6 +21,7 @@ func main() {
 	/** Router handlers */
 	router.HandleFunc("/api/ping", pingAPI).Methods("GET")
 	router.HandleFunc("/api/upload", uploadFileHandler).Methods("POST")
+	router.HandleFunc("/api/uploads", uploadMultipleFilesHandler).Methods("POST")
 	router.HandleFunc("/static/{filename}", getFile).Methods("GET")
 
 	/** load .env */
