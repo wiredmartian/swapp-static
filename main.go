@@ -20,15 +20,14 @@ func main() {
 	router.Use(parseToken)
 
 	/** Router handlers */
-	router.HandleFunc("/api/health", pingAPI).Methods("GET")
-	router.HandleFunc("/api/upload", uploadFileHandler).Methods("POST")
-	router.HandleFunc("/api/uploads", uploadMultipleFilesHandler).Methods("POST")
+	router.HandleFunc("/api/health", health).Methods("GET")
+	router.HandleFunc("/api/upload", uploadMultipleFilesHandler).Methods("POST")
 	router.HandleFunc("/static/{filename}", getFile).Methods("GET")
 
 	/** load .env */
 	err := godotenv.Load(".env")
 	if err != nil {
-		fmt.Println("Failed to load .env")
+		log.Fatal("Failed to load .env")
 	}
 	fmt.Println("Server running on PORT 8001")
 	log.Fatal(http.ListenAndServe(":8001", router))
@@ -41,7 +40,7 @@ type FileUploads struct {
 }
 
 /** Handlers */
-func pingAPI(w http.ResponseWriter, r *http.Request) {
+func health(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(`{"alive"}: true`)
@@ -55,11 +54,12 @@ func uploadMultipleFilesHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Uploading files...")
 	_ = r.ParseMultipartForm(5 * 1024 * 1024)
 	fileHeaders := r.MultipartForm.File["images"]
+	dir := r.MultipartForm.Value["dir"][0]
 	var uploadedFiles []string
 	for _, fh := range fileHeaders {
 		file, err := fh.Open()
 		if err == nil {
-			fileURI, _err := uploadFile(file)
+			fileURI, _err := uploadFile(file, dir)
 			if _err == nil {
 				uploadedFiles = append(uploadedFiles, fileURI)
 			}
@@ -70,9 +70,19 @@ func uploadMultipleFilesHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "application/json")
 	_ = json.NewEncoder(w).Encode(fileUrls)
 }
-func uploadFile(f multipart.File) (fileURI string, error error) {
+func uploadFile(f multipart.File, dir string) (fileURI string, error error) {
 	defer f.Close()
-	tempFile, _ := ioutil.TempFile("static", "upload-*.png")
+	newPath := filepath.Join("./static", dir)
+	if _, err := os.Stat(newPath); os.IsNotExist(err) {
+		_err := os.MkdirAll(newPath, os.ModePerm)
+		if _err != nil {
+			return "", _err
+		}
+	}
+	tempFile, er := ioutil.TempFile(newPath, "upload-*.png")
+	if er != nil {
+		return "", er
+	}
 	defer tempFile.Close()
 	fileBytes, _ := ioutil.ReadAll(f)
 	_, err := tempFile.Write(fileBytes)
@@ -82,67 +92,15 @@ func uploadFile(f multipart.File) (fileURI string, error error) {
 	return "/" + tempFile.Name(), nil
 
 }
-func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("content-type", "application/json")
-	fmt.Println("Uploading file...")
-	_ = r.ParseMultipartForm(5 * 1024 * 1024)
-	file, header, err := r.FormFile("image")
-	dir := r.MultipartForm.Value["dir"][0]
-	fmt.Println(dir)
-	if err != nil {
-		fmt.Println(err)
-		w.WriteHeader(400)
-		_ = json.NewEncoder(w).Encode(err.Error())
-		return
-	}
-	defer file.Close()
-	fmt.Printf("%v\n", header.Filename)
-	fmt.Printf("%v\n", header.Size)
-	fmt.Printf("%v\n", header.Header)
-	newFilePath := filepath.Join("./static", dir)
-	if _, err := os.Stat(newFilePath); os.IsNotExist(err) {
-		e := os.MkdirAll(newFilePath, os.ModePerm)
-		if e != nil {
-			w.WriteHeader(400)
-			_ = json.NewEncoder(w).Encode(e.Error())
-			return
-		}
-	}
-	tempFile, _error := ioutil.TempFile(newFilePath, "upload-*.png")
-	if _error != nil {
-		fmt.Println(_error)
-		w.WriteHeader(400)
-		_ = json.NewEncoder(w).Encode(_error.Error())
-		return
-	}
-	defer tempFile.Close()
 
-	fileBytes, er := ioutil.ReadAll(file)
-	if er != nil {
-		fmt.Println(err)
-		w.WriteHeader(400)
-		_ = json.NewEncoder(w).Encode(err.Error())
-		return
-	}
-	bytesW, _err := tempFile.Write(fileBytes)
-	if _err != nil {
-		fmt.Println(err)
-		w.WriteHeader(400)
-		_ = json.NewEncoder(w).Encode(_err.Error())
-		return
-	}
-	fmt.Println(bytesW)
-	var fileUrl = []string{fmt.Sprintf("/%v", tempFile.Name())}
-	res := FileUploads{Message: "Successfully uploaded file", FileUrls: fileUrl}
-	_ = json.NewEncoder(w).Encode(res)
-}
-
+/** Middleware */
 func parseToken(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		authHeader := request.Header.Get("Authorization")
-		if authHeader == "" {
-			fmt.Println("No token found, but it's cool for now")
-			next.ServeHTTP(writer, request)
+		if authHeader == "" && request.RequestURI == "/api/upload" {
+			writer.Header().Set("content-type", "application/json")
+			writer.WriteHeader(401)
+			_ = json.NewEncoder(writer).Encode(`{"message": "Authorization token not found"}`)
 			return
 		}
 		requestToken := authHeader[7:len(authHeader)]
@@ -155,11 +113,9 @@ func parseToken(next http.Handler) http.Handler {
 		})
 		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 			/** verified token here*/
-			fmt.Println(token.Claims)
 			fmt.Println(claims["userId"])
 			next.ServeHTTP(writer, request)
 		} else {
-			fmt.Println(err)
 			writer.Header().Set("content-type", "application/json")
 			writer.WriteHeader(400)
 			_ = json.NewEncoder(writer).Encode(err.Error())
@@ -167,7 +123,6 @@ func parseToken(next http.Handler) http.Handler {
 	})
 }
 
-/** Middleware */
 func requestLogging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		fmt.Println(request.RequestURI)
