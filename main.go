@@ -99,9 +99,12 @@ func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("%v\n", header.Filename)
 	fmt.Printf("%v\n", header.Size)
 	fmt.Printf("%v\n", header.Header)
-	newFilePath := filepath.Join("static", dir[0])
+	newFilePath := filepath.Join("./static", dir[0])
 	if _, err := os.Stat(newFilePath); os.IsNotExist(err) {
-		os.Mkdir(newFilePath, os.ModePerm)
+		e := os.MkdirAll(newFilePath, os.ModePerm)
+		if e != nil {
+			fmt.Println(e)
+		}
 	}
 	tempFile, _error := ioutil.TempFile(newFilePath, "upload-*.png")
 	if _error != nil {
