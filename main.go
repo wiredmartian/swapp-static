@@ -86,7 +86,7 @@ func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Uploading file...")
 	_ = r.ParseMultipartForm(5 * 1024 * 1024)
 	file, header, err := r.FormFile("image")
-	dir := r.MultipartForm.Value["dir"]
+	dir := r.MultipartForm.Value["dir"][0]
 	fmt.Println(dir)
 	if err != nil {
 		fmt.Println(err)
@@ -99,7 +99,7 @@ func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("%v\n", header.Filename)
 	fmt.Printf("%v\n", header.Size)
 	fmt.Printf("%v\n", header.Header)
-	newFilePath := filepath.Join("./static", dir[0])
+	newFilePath := filepath.Join("./static", dir)
 	if _, err := os.Stat(newFilePath); os.IsNotExist(err) {
 		e := os.MkdirAll(newFilePath, os.ModePerm)
 		if e != nil {
