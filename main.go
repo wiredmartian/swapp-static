@@ -11,6 +11,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"path/filepath"
 )
 
 func main() {
@@ -19,7 +20,7 @@ func main() {
 	router.Use(parseToken)
 
 	/** Router handlers */
-	router.HandleFunc("/api/ping", pingAPI).Methods("GET")
+	router.HandleFunc("/api/health", pingAPI).Methods("GET")
 	router.HandleFunc("/api/upload", uploadFileHandler).Methods("POST")
 	router.HandleFunc("/api/uploads", uploadMultipleFilesHandler).Methods("POST")
 	router.HandleFunc("/static/{filename}", getFile).Methods("GET")
@@ -42,7 +43,8 @@ type FileUploads struct {
 /** Handlers */
 func pingAPI(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "application/json")
-	_ = json.NewEncoder(w).Encode("Hello from Go api!")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(`{"alive"}: true`)
 }
 func getFile(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
@@ -84,6 +86,8 @@ func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Uploading file...")
 	_ = r.ParseMultipartForm(5 * 1024 * 1024)
 	file, header, err := r.FormFile("image")
+	dir := r.MultipartForm.Value["dir"]
+	fmt.Println(dir)
 	if err != nil {
 		fmt.Println(err)
 		w.Header().Set("content-type", "application/json")
@@ -95,8 +99,11 @@ func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("%v\n", header.Filename)
 	fmt.Printf("%v\n", header.Size)
 	fmt.Printf("%v\n", header.Header)
-
-	tempFile, _error := ioutil.TempFile("static", "upload-*.png")
+	newFilePath := filepath.Join("static", dir[0])
+	if _, err := os.Stat(newFilePath); os.IsNotExist(err) {
+		os.Mkdir(newFilePath, os.ModePerm)
+	}
+	tempFile, _error := ioutil.TempFile(newFilePath, "upload-*.png")
 	if _error != nil {
 		fmt.Println(_error)
 		w.Header().Set("content-type", "application/json")
@@ -148,7 +155,7 @@ func parseToken(next http.Handler) http.Handler {
 		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 			/** verified token here*/
 			fmt.Println(token.Claims)
-			fmt.Println(claims["iss"])
+			fmt.Println(claims["userId"])
 			next.ServeHTTP(writer, request)
 		} else {
 			fmt.Println(err)
