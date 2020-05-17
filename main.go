@@ -83,6 +83,7 @@ func uploadFile(f multipart.File) (fileURI string, error error) {
 
 }
 func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("content-type", "application/json")
 	fmt.Println("Uploading file...")
 	_ = r.ParseMultipartForm(5 * 1024 * 1024)
 	file, header, err := r.FormFile("image")
@@ -90,7 +91,6 @@ func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(dir)
 	if err != nil {
 		fmt.Println(err)
-		w.Header().Set("content-type", "application/json")
 		w.WriteHeader(400)
 		_ = json.NewEncoder(w).Encode(err.Error())
 		return
@@ -103,13 +103,14 @@ func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
 	if _, err := os.Stat(newFilePath); os.IsNotExist(err) {
 		e := os.MkdirAll(newFilePath, os.ModePerm)
 		if e != nil {
-			fmt.Println(e)
+			w.WriteHeader(400)
+			_ = json.NewEncoder(w).Encode(e.Error())
+			return
 		}
 	}
 	tempFile, _error := ioutil.TempFile(newFilePath, "upload-*.png")
 	if _error != nil {
 		fmt.Println(_error)
-		w.Header().Set("content-type", "application/json")
 		w.WriteHeader(400)
 		_ = json.NewEncoder(w).Encode(_error.Error())
 		return
@@ -119,7 +120,6 @@ func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
 	fileBytes, er := ioutil.ReadAll(file)
 	if er != nil {
 		fmt.Println(err)
-		w.Header().Set("content-type", "application/json")
 		w.WriteHeader(400)
 		_ = json.NewEncoder(w).Encode(err.Error())
 		return
@@ -127,7 +127,6 @@ func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
 	bytesW, _err := tempFile.Write(fileBytes)
 	if _err != nil {
 		fmt.Println(err)
-		w.Header().Set("content-type", "application/json")
 		w.WriteHeader(400)
 		_ = json.NewEncoder(w).Encode(_err.Error())
 		return
@@ -135,7 +134,6 @@ func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(bytesW)
 	var fileUrl = []string{fmt.Sprintf("/%v", tempFile.Name())}
 	res := FileUploads{Message: "Successfully uploaded file", FileUrls: fileUrl}
-	w.Header().Set("content-type", "application/json")
 	_ = json.NewEncoder(w).Encode(res)
 }
 
