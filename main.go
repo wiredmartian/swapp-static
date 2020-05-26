@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func main() {
@@ -21,7 +22,9 @@ func main() {
 
 	/** Router handlers */
 	router.HandleFunc("/api/health", health).Methods("GET")
-	router.HandleFunc("/api/upload", uploadMultipleFilesHandler).Methods("POST")
+	router.HandleFunc("/api/upload", uploadFilesHandler).Methods("POST")
+	/** I need to post file paths */
+	router.HandleFunc("/api/purge", removeFilesHandler).Methods("POST")
 	router.HandleFunc("/static/{filename}", getFile).Methods("GET")
 
 	/** load .env */
@@ -50,7 +53,7 @@ func getFile(w http.ResponseWriter, r *http.Request) {
 	filename := params["filename"]
 	http.ServeFile(w, r, "./static/"+filename)
 }
-func uploadMultipleFilesHandler(w http.ResponseWriter, r *http.Request) {
+func uploadFilesHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Uploading files...")
 	_ = r.ParseMultipartForm(5 * 1024 * 1024)
 	fileHeaders := r.MultipartForm.File["images"]
@@ -69,6 +72,20 @@ func uploadMultipleFilesHandler(w http.ResponseWriter, r *http.Request) {
 	fileUrls := FileUploads{Message: resMessage, FileUrls: uploadedFiles}
 	w.Header().Set("content-type", "application/json")
 	_ = json.NewEncoder(w).Encode(fileUrls)
+}
+func removeFilesHandler(w http.ResponseWriter, r *http.Request) {
+	var paths string = r.Form.Get("filePaths")
+	var filePaths []string = strings.Split(paths, ",")
+	counter := 0
+	for _, path := range filePaths {
+		err := os.Remove(path)
+		if err == nil {
+			counter++
+		}
+	}
+	responseMessage := fmt.Sprintf("Remove %v files out of %v", counter, len(filePaths))
+	w.Header().Set("content-type", "application/json")
+	_ = json.NewEncoder(w).Encode(responseMessage)
 }
 func uploadFile(f multipart.File, dir string) (fileURI string, error error) {
 	defer f.Close()
