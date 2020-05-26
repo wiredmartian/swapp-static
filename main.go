@@ -78,9 +78,12 @@ func removeFilesHandler(w http.ResponseWriter, r *http.Request) {
 	var filePaths []string = strings.Split(paths, ",")
 	counter := 0
 	for _, path := range filePaths {
-		err := os.Remove(path)
-		if err == nil {
-			counter++
+		/** we don't wanna remove a wrong dir */
+		if strings.Contains(path, "/static/profiles") || strings.Contains(path, "/static/products") {
+			err := os.Remove(path)
+			if err == nil {
+				counter++
+			}
 		}
 	}
 	responseMessage := fmt.Sprintf("Remove %v files out of %v", counter, len(filePaths))
