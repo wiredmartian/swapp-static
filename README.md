@@ -27,3 +27,5 @@ All "POST" routes are authenticated, the "GET"s can be anonymous
 }
 ```
 
+`/static/{folder}/{filename}` - example (/static/products/upload-152937248.png). The server return a file or a 404 if the image isn't found
+
