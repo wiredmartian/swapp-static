@@ -23,9 +23,10 @@ func main() {
 	/** Router handlers */
 	router.HandleFunc("/api/health", health).Methods("GET")
 	router.HandleFunc("/api/upload", uploadFilesHandler).Methods("POST")
+	router.HandleFunc("/api/create-dir", createDirHandler).Methods("POST")
 	/** I need to post file paths */
 	router.HandleFunc("/api/purge", removeFilesHandler).Methods("POST")
-	router.HandleFunc("/static/{filename}", getFile).Methods("GET")
+	router.HandleFunc("/static/{filename}", getFileHandler).Methods("GET")
 
 	/** load .env */
 	err := godotenv.Load(".env")
@@ -48,11 +49,7 @@ func health(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(`{"alive"}: true`)
 }
-func getFile(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	filename := params["filename"]
-	http.ServeFile(w, r, "./static/"+filename)
-}
+
 func uploadFilesHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Uploading files...")
 	_ = r.ParseMultipartForm(5 * 1024 * 1024)
@@ -73,6 +70,10 @@ func uploadFilesHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "application/json")
 	_ = json.NewEncoder(w).Encode(fileUrls)
 }
+
+/*
+Removes all files that exist on a dir
+*/
 func removeFilesHandler(w http.ResponseWriter, r *http.Request) {
 	var paths string = r.Form.Get("filePaths")
 	var filePaths []string = strings.Split(paths, ",")
@@ -89,6 +90,49 @@ func removeFilesHandler(w http.ResponseWriter, r *http.Request) {
 	responseMessage := fmt.Sprintf("Remove %v files out of %v", counter, len(filePaths))
 	w.Header().Set("content-type", "application/json")
 	_ = json.NewEncoder(w).Encode(responseMessage)
+}
+func getFileHandler(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	filename := params["filename"]
+	http.ServeFile(w, r, "./static/"+filename)
+}
+
+func createDirHandler(w http.ResponseWriter, r *http.Request) {
+	dir := r.Form.Get("dir")
+	dir = strings.TrimSpace(dir)
+	w.Header().Set("content-type", "application/json")
+	if strings.ContainsAny(dir, "<>[]{}()!@#$^&*=+;:|/?.,`~") || strings.Contains(dir, " ") {
+		w.WriteHeader(http.StatusBadRequest)
+		responseMessage := fmt.Sprintf("%v contains special characters", dir)
+		_ = json.NewEncoder(w).Encode(`{"message"}: ` + responseMessage)
+		return
+	}
+	dirInfo, err := createDir(dir)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		resMessage := err.Error()
+		_ = json.NewEncoder(w).Encode(`{"message"}: ` + resMessage)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(`{"message"}: successfully created new folder: ` + dirInfo.Name())
+}
+
+/** END Handlers */
+
+func createDir(dir string) (dirInfo os.FileInfo, error error) {
+	newPath := filepath.Join("./static", dir)
+	fileInfo, err := os.Stat(newPath)
+	/** if the dir does not exist, create it*/
+	if os.IsNotExist(err) && fileInfo == nil {
+		_err := os.Mkdir(newPath, os.ModePerm)
+		if _err != nil {
+			return nil, _err
+		}
+		newDirInfo, _ := os.Stat(newPath)
+		return newDirInfo, nil
+	}
+	return nil, os.ErrExist
 }
 func uploadFile(f multipart.File, dir string) (fileURI string, error error) {
 	defer f.Close()
@@ -117,7 +161,7 @@ func uploadFile(f multipart.File, dir string) (fileURI string, error error) {
 func parseToken(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		authHeader := request.Header.Get("Authorization")
-		if authHeader == "" && request.RequestURI == "/api/upload" {
+		if authHeader == "" && request.Method == "POST" {
 			writer.Header().Set("content-type", "application/json")
 			writer.WriteHeader(401)
 			_ = json.NewEncoder(writer).Encode(`{"message": "Authorization token not found"}`)
