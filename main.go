@@ -18,7 +18,7 @@ import (
 func main() {
 	router := mux.NewRouter()
 	router.Use(requestLogging)
-	// router.Use(parseToken)
+	router.Use(parseToken)
 
 	/** Router handlers */
 	router.HandleFunc("/api/health", health).Methods("GET")
