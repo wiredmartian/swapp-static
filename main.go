@@ -53,6 +53,7 @@ func getFile(w http.ResponseWriter, r *http.Request) {
 	filename := params["filename"]
 	http.ServeFile(w, r, "./static/"+filename)
 }
+
 func uploadFilesHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Uploading files...")
 	_ = r.ParseMultipartForm(5 * 1024 * 1024)
@@ -89,6 +90,20 @@ func removeFilesHandler(w http.ResponseWriter, r *http.Request) {
 	responseMessage := fmt.Sprintf("Remove %v files out of %v", counter, len(filePaths))
 	w.Header().Set("content-type", "application/json")
 	_ = json.NewEncoder(w).Encode(responseMessage)
+}
+func createDir(dir string) (dirInfo os.FileInfo, error error) {
+	newPath := filepath.Join("./static", dir)
+	fileInfo, err := os.Stat(newPath)
+	/** if the dir does not exist, create it*/
+	if os.IsNotExist(err) && fileInfo == nil {
+		_err := os.Mkdir(newPath, os.ModePerm)
+		if _err != nil {
+			return nil, _err
+		}
+		newDirInfo, _ := os.Stat(newPath)
+		return newDirInfo, nil
+	}
+	return nil, os.ErrExist
 }
 func uploadFile(f multipart.File, dir string) (fileURI string, error error) {
 	defer f.Close()
