@@ -27,6 +27,7 @@ func main() {
 	/** I need to post file paths */
 	router.HandleFunc("/api/purge", purgeDirsHandler).Methods("POST")
 	router.HandleFunc("/static/{dir}/{filename}", getFileHandler).Methods("GET")
+	router.HandleFunc("/static/{filename}", getFileHandler).Methods("GET")
 
 	/** load .env */
 	err := godotenv.Load(".env")
@@ -109,13 +110,22 @@ func getFileHandler(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	filename := params["filename"]
 	dir := params["dir"]
-	fmt.Println(dir)
-	fileInfo, err := os.Stat("./static/" + dir + "/" + filename)
-	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		return
+
+	if dir != "" {
+		fileInfo, err := os.Stat("./static/" + dir + "/" + filename)
+		if err != nil {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		http.ServeFile(w, r, "./static/"+dir+"/"+fileInfo.Name())
+	} else {
+		_fileInfo, err := os.Stat("./static/" + filename)
+		if err != nil {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		http.ServeFile(w, r, "./static/"+_fileInfo.Name())
 	}
-	http.ServeFile(w, r, "./static/"+dir+"/"+fileInfo.Name())
 }
 
 func createDirHandler(w http.ResponseWriter, r *http.Request) {
