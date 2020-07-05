@@ -18,7 +18,7 @@ import (
 func main() {
 	router := mux.NewRouter()
 	router.Use(requestLogging)
-	router.Use(parseToken)
+	// router.Use(parseToken)
 
 	/** Router handlers */
 	router.HandleFunc("/api/health", health).Methods("GET")
@@ -46,9 +46,15 @@ type FileUploads struct {
 type Purge struct {
 	FileDir string
 }
+type CreateDir struct {
+	DirName string
+}
 type FolderStructure struct {
 	FileDir string
 	Files   []os.FileInfo
+}
+type MessageResponse struct {
+	Message string
 }
 
 /** Handlers */
@@ -129,24 +135,31 @@ func getFileHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func createDirHandler(w http.ResponseWriter, r *http.Request) {
-	dir := r.Form.Get("dir")
-	dir = strings.TrimSpace(dir)
+	var res MessageResponse
+	var dirName CreateDir
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&dirName)
+	if err != nil {
+		fmt.Println(err)
+	}
+	dir := strings.TrimSpace(dirName.DirName)
 	w.Header().Set("content-type", "application/json")
 	if strings.ContainsAny(dir, "<>[]{}()!@#$^&*=+;:|/?.,`~") || strings.Contains(dir, " ") {
 		w.WriteHeader(http.StatusBadRequest)
-		responseMessage := fmt.Sprintf("%v contains special characters", dir)
-		_ = json.NewEncoder(w).Encode(`{"message"}: ` + responseMessage)
+		res.Message = fmt.Sprintf("%v contains empty space and/or special characters", dir)
+		_ = json.NewEncoder(w).Encode(res)
 		return
 	}
-	dirInfo, err := createDir(dir)
-	if err != nil {
+	dirInfo, _err := createDir(dir)
+	if _err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		resMessage := err.Error()
-		_ = json.NewEncoder(w).Encode(`{"message"}: ` + resMessage)
+		res.Message = _err.Error()
+		_ = json.NewEncoder(w).Encode(res)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(`{"message"}: successfully created new folder: ` + dirInfo.Name())
+	res.Message = fmt.Sprintf("%v folder was successfully created", dirInfo.Name())
+	_ = json.NewEncoder(w).Encode(res)
 }
 
 /** END Handlers */
