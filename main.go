@@ -18,15 +18,15 @@ import (
 func main() {
 	router := mux.NewRouter()
 	router.Use(requestLogging)
-	router.Use(parseToken)
+	// router.Use(parseToken)
 
 	/** Router handlers */
 	router.HandleFunc("/api/health", health).Methods("GET")
 	router.HandleFunc("/api/upload", uploadFilesHandler).Methods("POST")
 	router.HandleFunc("/api/create-dir", createDirHandler).Methods("POST")
 	/** I need to post file paths */
-	router.HandleFunc("/api/purge", removeFilesHandler).Methods("POST")
-	router.HandleFunc("/static/{filename}", getFileHandler).Methods("GET")
+	router.HandleFunc("/api/purge", purgeDirsHandler).Methods("POST")
+	router.HandleFunc("/static/{dir}/{filename}", getFileHandler).Methods("GET")
 
 	/** load .env */
 	err := godotenv.Load(".env")
@@ -41,6 +41,9 @@ func main() {
 type FileUploads struct {
 	Message  string
 	FileUrls []string
+}
+type Purge struct {
+	FileDir string
 }
 
 /** Handlers */
@@ -74,27 +77,41 @@ func uploadFilesHandler(w http.ResponseWriter, r *http.Request) {
 /*
 Removes all files that exist on a dir
 */
-func removeFilesHandler(w http.ResponseWriter, r *http.Request) {
-	var paths string = r.Form.Get("filePaths")
-	var filePaths []string = strings.Split(paths, ",")
+func purgeDirsHandler(w http.ResponseWriter, r *http.Request) {
+	var body Purge
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&body)
+	if err != nil {
+		fmt.Println(err)
+	}
+	var filePaths []string = strings.Split(body.FileDir, ",")
 	counter := 0
 	for _, path := range filePaths {
 		/** we don't wanna remove a wrong dir */
-		if strings.Contains(path, "/static/profiles") || strings.Contains(path, "/static/products") {
-			err := os.Remove(path)
+		path = filepath.Join("./static/", path)
+		if strings.Index("/static/profiles", path) >= 0 || strings.Index("/static/products", path) >= 0 {
+			err := os.RemoveAll(path)
 			if err == nil {
 				counter++
 			}
+			fmt.Println(err)
 		}
 	}
-	responseMessage := fmt.Sprintf("Remove %v files out of %v", counter, len(filePaths))
+	responseMessage := fmt.Sprintf("Remove %v folders with file", counter)
 	w.Header().Set("content-type", "application/json")
 	_ = json.NewEncoder(w).Encode(responseMessage)
 }
 func getFileHandler(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	filename := params["filename"]
-	http.ServeFile(w, r, "./static/"+filename)
+	dir := params["dir"]
+	fmt.Println(dir)
+	fileInfo, err := os.Stat("./static/" + dir + "/" + filename)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	http.ServeFile(w, r, "./static/"+dir+"/"+fileInfo.Name())
 }
 
 func createDirHandler(w http.ResponseWriter, r *http.Request) {
