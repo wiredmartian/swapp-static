@@ -18,7 +18,7 @@ import (
 func main() {
 	router := mux.NewRouter()
 	router.Use(requestLogging)
-	// router.Use(parseToken)
+	router.Use(parseToken)
 
 	/** Router handlers */
 	router.HandleFunc("/api/health", health).Methods("GET")
@@ -27,6 +27,7 @@ func main() {
 	/** I need to post file paths */
 	router.HandleFunc("/api/purge", purgeDirsHandler).Methods("POST")
 	router.HandleFunc("/static/{dir}/{filename}", getFileHandler).Methods("GET")
+	router.HandleFunc("/static/{dir}/{filename}", deleteImage).Methods("DELETE")
 	router.HandleFunc("/static/{filename}", getFileHandler).Methods("GET")
 
 	/** load .env */
@@ -160,6 +161,27 @@ func createDirHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	res.Message = fmt.Sprintf("%v folder was successfully created", dirInfo.Name())
 	_ = json.NewEncoder(w).Encode(res)
+}
+func deleteImage(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	filename := params["filename"]
+	dir := params["dir"]
+	w.Header().Set("content-type", "application/json")
+	path := filepath.Join("./static/", "./static/"+dir+"/"+filename)
+	_, err := os.Stat(path)
+	if err != nil {
+		w.WriteHeader(404)
+		_ = json.NewEncoder(w).Encode(err.Error())
+		return
+	}
+	_err := os.Remove(path)
+	if _err != nil {
+		w.WriteHeader(400)
+		_ = json.NewEncoder(w).Encode(_err.Error())
+		return
+	}
+	w.WriteHeader(200)
+	_ = json.NewEncoder(w)
 }
 
 /** END Handlers */
