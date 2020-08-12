@@ -27,7 +27,7 @@ func main() {
 	/** I need to post file paths */
 	router.HandleFunc("/api/purge", purgeDirsHandler).Methods("POST")
 	router.HandleFunc("/static/{dir}/{filename}", getFileHandler).Methods("GET")
-	router.HandleFunc("/static/{dir}/{filename}", deleteImage).Methods("DELETE")
+	router.HandleFunc("/api/remove/{dir}/{filename}", deleteImage).Methods("DELETE")
 	router.HandleFunc("/static/{filename}", getFileHandler).Methods("GET")
 
 	/** load .env */
