@@ -82,7 +82,9 @@ func uploadFilesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	resMessage := fmt.Sprintf("%v out of %v files were uploaded", len(uploadedFiles), len(fileHeaders))
 	fileUrls := FileUploads{Message: resMessage, FileUrls: uploadedFiles}
+	fmt.Println("file uploaded")
 	w.Header().Set("content-type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(fileUrls)
 }
 
@@ -111,6 +113,7 @@ func purgeDirsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	responseMessage := fmt.Sprintf("Remove %v folders with file", counter)
 	w.Header().Set("content-type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(responseMessage)
 }
 func getFileHandler(w http.ResponseWriter, r *http.Request) {
@@ -231,6 +234,11 @@ func parseToken(next http.Handler) http.Handler {
 			writer.Header().Set("content-type", "application/json")
 			writer.WriteHeader(401)
 			_ = json.NewEncoder(writer).Encode(`{"message": "Authorization token not found"}`)
+			return
+		}
+		if request.Method == "GET" {
+			fmt.Println("No auth required for GETs")
+			next.ServeHTTP(writer, request)
 			return
 		}
 		requestToken := authHeader[7:len(authHeader)]
