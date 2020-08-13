@@ -170,7 +170,8 @@ func deleteImage(w http.ResponseWriter, r *http.Request) {
 	filename := params["filename"]
 	dir := params["dir"]
 	w.Header().Set("content-type", "application/json")
-	path := filepath.Join("./static/", "./static/"+dir+"/"+filename)
+	path := filepath.Join("./static/", dir+"/"+filename)
+	fmt.Println(path)
 	_, err := os.Stat(path)
 	if err != nil {
 		w.WriteHeader(404)
