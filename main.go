@@ -27,6 +27,7 @@ func main() {
 	/** I need to post file paths */
 	router.HandleFunc("/api/purge", purgeDirsHandler).Methods("POST")
 	router.HandleFunc("/static/{dir}/{filename}", getFileHandler).Methods("GET")
+	router.HandleFunc("/api/remove/{dir}/{filename}", deleteImage).Methods("DELETE")
 	router.HandleFunc("/static/{filename}", getFileHandler).Methods("GET")
 
 	/** load .env */
@@ -81,7 +82,9 @@ func uploadFilesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	resMessage := fmt.Sprintf("%v out of %v files were uploaded", len(uploadedFiles), len(fileHeaders))
 	fileUrls := FileUploads{Message: resMessage, FileUrls: uploadedFiles}
+	fmt.Println("file uploaded")
 	w.Header().Set("content-type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(fileUrls)
 }
 
@@ -110,6 +113,7 @@ func purgeDirsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	responseMessage := fmt.Sprintf("Remove %v folders with file", counter)
 	w.Header().Set("content-type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(responseMessage)
 }
 func getFileHandler(w http.ResponseWriter, r *http.Request) {
@@ -161,6 +165,28 @@ func createDirHandler(w http.ResponseWriter, r *http.Request) {
 	res.Message = fmt.Sprintf("%v folder was successfully created", dirInfo.Name())
 	_ = json.NewEncoder(w).Encode(res)
 }
+func deleteImage(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	filename := params["filename"]
+	dir := params["dir"]
+	w.Header().Set("content-type", "application/json")
+	path := filepath.Join("./static/", dir+"/"+filename)
+	fmt.Println(path)
+	_, err := os.Stat(path)
+	if err != nil {
+		w.WriteHeader(404)
+		_ = json.NewEncoder(w).Encode(err.Error())
+		return
+	}
+	_err := os.Remove(path)
+	if _err != nil {
+		w.WriteHeader(400)
+		_ = json.NewEncoder(w).Encode(_err.Error())
+		return
+	}
+	w.WriteHeader(200)
+	_ = json.NewEncoder(w)
+}
 
 /** END Handlers */
 
@@ -209,6 +235,11 @@ func parseToken(next http.Handler) http.Handler {
 			writer.Header().Set("content-type", "application/json")
 			writer.WriteHeader(401)
 			_ = json.NewEncoder(writer).Encode(`{"message": "Authorization token not found"}`)
+			return
+		}
+		if request.Method == "GET" {
+			fmt.Println("No auth required for GETs")
+			next.ServeHTTP(writer, request)
 			return
 		}
 		requestToken := authHeader[7:len(authHeader)]
